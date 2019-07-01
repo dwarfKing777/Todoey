@@ -10,6 +10,7 @@ import UIKit
 
 class TodoeyTableViewController: UITableViewController {
     
+    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
     var itemArray = [Item]()
     let rowNumber = 0
     let defaults = UserDefaults.standard
@@ -17,27 +18,31 @@ class TodoeyTableViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+//        print(dataFilePath)
         
-        let newItem = Item()
-        newItem.title = "asd"
-        itemArray.append(newItem)
+//        let newItem = Item()
+//        newItem.title = "asd"
+//        itemArray.append(newItem)
+//
+//        let newItem2 = Item()
+//        newItem2.title = "hdskjfhdskfhd"
+//        itemArray.append(newItem2)
+//
+//        let newItem3 = Item()
+//        newItem3.title = "asd djskhfskjfhkj ksdhfkjds fjkdsf k"
+//        itemArray.append(newItem3)
+//
+//        let newItem4 = Item()
+//        newItem4.title = "asd a jdhskj fhk"
+//        itemArray.append(newItem4)
         
-        let newItem2 = Item()
-        newItem2.title = "hdskjfhdskfhd"
-        itemArray.append(newItem2)
+        //Call to load saved items
+        loadItems()
         
-        let newItem3 = Item()
-        newItem3.title = "asd djskhfskjfhkj ksdhfkjds fjkdsf k"
-        itemArray.append(newItem3)
+//        if let itemsLoad = defaults.array(forKey: "ToDoListArray") as? [Item] {
+//            itemArray = itemsLoad
+//        }
         
-        let newItem4 = Item()
-        newItem4.title = "asd a jdhskj fhk"
-        itemArray.append(newItem4)
-        
-        
-        if let itemsLoad = defaults.array(forKey: "ToDoListArray") as? [Item] {
-            itemArray = itemsLoad
-        }
         
         // Do any additional setup after loading the view.
     }
@@ -90,7 +95,7 @@ class TodoeyTableViewController: UITableViewController {
 //            tableView.cellForRow(at: indexPath)?.accessoryType = .checkmark
 //        }
         
-        tableView.reloadData()
+        self.saveData()
         tableView.deselectRow(at: indexPath, animated: true)
     }
     
@@ -106,10 +111,12 @@ class TodoeyTableViewController: UITableViewController {
             let newItem1 = Item()
             newItem1.title = textField.text!
             self.itemArray.append(newItem1)
-            self.defaults.set(newItem1.title, forKey: "ToDoListArray")
+            
+            self.saveData()
+//            self.defaults.set(newItem1.title, forKey: "ToDoListArray")
 //            self.defaults.set(newItem1.done, forKey: "ToDoListArray")
 //            self.defaults.set(newItem1, forKey: "ToDoListArray")
-            self.tableView.reloadData()
+//            self.tableView.reloadData()
         }
         
         alert.addTextField { (alertTextField) in
@@ -120,6 +127,31 @@ class TodoeyTableViewController: UITableViewController {
         present(alert, animated: true, completion: nil)
         
     }
-    
+   
+    //MARK - Model Data Manupulation
+    func saveData() {
+        let encoder = PropertyListEncoder()
+        do {
+            let data = try encoder.encode(itemArray)
+            try data.write(to: dataFilePath!)
+        }
+        catch {
+            print ("Error occured! \(error)")
+        }
+        tableView.reloadData()
+        
+    }
+
+    func loadItems() {
+        if let data = try? Data(contentsOf: dataFilePath!) {
+            let decoder = PropertyListDecoder()
+            do {
+                itemArray = try decoder.decode([Item].self, from: data)
+            }
+            catch {
+                print("Error decoding the data. \(error)")
+            }
+        }
+    }
     
 }
