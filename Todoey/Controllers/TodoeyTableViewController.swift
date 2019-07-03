@@ -7,18 +7,28 @@
 //
 
 import UIKit
+import CoreData
 
 class TodoeyTableViewController: UITableViewController {
+    
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
     let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
     var itemArray = [Item]()
     let rowNumber = 0
     let defaults = UserDefaults.standard
+    
+    var selectedCategory : Category? {
+        didSet {
+            loadItems()
+        }
+    }
+
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-//        print(dataFilePath)
+//        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
         
 //        let newItem = Item()
 //        newItem.title = "asd"
@@ -37,7 +47,7 @@ class TodoeyTableViewController: UITableViewController {
 //        itemArray.append(newItem4)
         
         //Call to load saved items
-        loadItems()
+//        loadItems()
         
 //        if let itemsLoad = defaults.array(forKey: "ToDoListArray") as? [Item] {
 //            itemArray = itemsLoad
@@ -95,6 +105,10 @@ class TodoeyTableViewController: UITableViewController {
 //            tableView.cellForRow(at: indexPath)?.accessoryType = .checkmark
 //        }
         
+        //Remove or delete from sqlite database
+//        context.delete(itemArray[indexPath.row])
+//        itemArray.remove(at: indexPath.row)
+        
         self.saveData()
         tableView.deselectRow(at: indexPath, animated: true)
     }
@@ -108,8 +122,10 @@ class TodoeyTableViewController: UITableViewController {
         let alert = UIAlertController(title: "Create New Task", message: "", preferredStyle: .alert)
         
         let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
-            let newItem1 = Item()
+            let newItem1 = Item(context: self.context)
             newItem1.title = textField.text!
+            newItem1.done = false
+            newItem1.parentCategory = self.selectedCategory
             self.itemArray.append(newItem1)
             
             self.saveData()
@@ -130,28 +146,84 @@ class TodoeyTableViewController: UITableViewController {
    
     //MARK - Model Data Manupulation
     func saveData() {
-        let encoder = PropertyListEncoder()
+        
         do {
-            let data = try encoder.encode(itemArray)
-            try data.write(to: dataFilePath!)
+            try context.save()
         }
         catch {
-            print ("Error occured! \(error)")
-        }
+            print ("Error saving data! \(error)")
+                }
+        
+//        let encoder = PropertyListEncoder()
+//        do {
+//            let data = try encoder.encode(itemArray)
+//            try data.write(to: dataFilePath!)
+//        }
+//        catch {
+//            print ("Error occured! \(error)")
+//        }
+        
+        
         tableView.reloadData()
         
     }
 
-    func loadItems() {
-        if let data = try? Data(contentsOf: dataFilePath!) {
-            let decoder = PropertyListDecoder()
-            do {
-                itemArray = try decoder.decode([Item].self, from: data)
-            }
-            catch {
-                print("Error decoding the data. \(error)")
-            }
+    // Load items from sqlite database
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest(), predicate: NSPredicate? = nil) {
+        
+//        let request : NSFetchRequest<Item> = Item.fetchRequest()
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
+        
+        if let additionalPredicate = predicate {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
+        }else {
+            request.predicate = categoryPredicate
         }
+        
+//        let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, predicate])
+//
+//        request.predicate = compoundPredicate
+        
+        do {
+            itemArray = try context.fetch(request)
+        }
+        catch {
+            print("Error retrieving data from sqlite \(error)")
+        }
+        tableView.reloadData()
+    }
+}
+
+
+extension TodoeyTableViewController: UISearchBarDelegate {
+    
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        let request: NSFetchRequest<Item> = Item.fetchRequest()
+        
+        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        
+        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+        
+        loadItems(with: request, predicate: predicate)
+//        do {
+//            itemArray = try context.fetch(request)
+//        }
+//        catch {
+//            print("Error retrieving data from sqlite \(error)")
+//        }
+        tableView.reloadData()
     }
     
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0 {
+            loadItems()
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
+            }
+            
+            
+        }
+    }
 }
